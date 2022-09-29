@@ -1,11 +1,15 @@
-from curses.ascii import isdigit
 import os
 from enum import Enum
+from constants import MODE_ENVIRONMENT_VARNAME
 
 
 class Mode(Enum):
+    """Режим работы бота"""
+
     UNKNOWN = 0
+
     DEBUG = 1
+
     PRODUCTION = 2
 
     @classmethod
@@ -31,7 +35,7 @@ class Mode(Enum):
 
     @classmethod
     def from_env(cls):
-        value = os.environ.get('BOT_ENVIRONMENT', 'DEBUG')
+        value = os.environ.get(MODE_ENVIRONMENT_VARNAME, 'DEBUG')
 
         if value.isdigit():
             return cls.from_number(int(value))
