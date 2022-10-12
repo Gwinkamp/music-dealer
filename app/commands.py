@@ -56,7 +56,7 @@ class Commands(Cog):
         """Добавить песню в очередь playlist"""
         track_meta = await self.storage.get(track_name)
         if track_meta is None:
-            await context.send(f'Песня с названием "{track_name}" не найдена')
+            return await context.send(f'Песня с названием "{track_name}" не найдена')
 
         track_name, track_source = track_meta
         track = Track(
@@ -93,7 +93,7 @@ class Commands(Cog):
             'size': item.size,
             'updated': item.mtime.isoformat()
         } for item in result]
-        return await context.send(f'```\n{json.dumps(items, indent=2)}\n```')
+        return await context.send(f'```\n{json.dumps(items, indent=2, ensure_ascii=False)}\n```')
 
     @command()
     async def pause(self, _: Context):
