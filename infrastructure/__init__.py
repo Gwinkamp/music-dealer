@@ -1,0 +1,1 @@
+from .seafile_music_storage import SeafileMusicStorage

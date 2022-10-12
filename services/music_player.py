@@ -1,19 +1,19 @@
 import time
 import asyncio
+from logging import Logger
 from typing import Deque
 from collections import deque
 from core.models import Track
-from core.logging import create_default_logger
 from discord import VoiceClient, VoiceChannel
 
 
 class MusicPlayer:
 
-    def __init__(self):
+    def __init__(self, logger: Logger):
         self._is_stopped = False
         self._voice_client: VoiceClient | None = None
         self._playlist: Deque[Track] = deque()
-        self._logger = create_default_logger(__name__)
+        self._logger = logger
 
     @property
     def is_connected_to_voice_channel(self):
@@ -68,12 +68,12 @@ class MusicPlayer:
 
         self._voice_client.play(track.source, after=callack)
 
-        def wait_until_complete(track: Track):
-            track.is_playing = True
+        def wait_until_complete(t: Track):
+            t.is_playing = True
 
-            while track.is_playing:
+            while t.is_playing:
                 if self.is_stopped:
-                    track.is_running = False
+                    t.is_running = False
                 else:
                     time.sleep(1)
 

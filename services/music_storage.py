@@ -1,13 +1,28 @@
-from pathlib import Path
-import ffmpeg_downloader as ffdl
-from discord import PCMVolumeTransformer, FFmpegPCMAudio
+from typing import List, Tuple
+from discord import AudioSource
+from abc import ABCMeta, abstractmethod
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+class MusicStorage(metaclass=ABCMeta):
 
+    @abstractmethod
+    async def setup(self) -> None:
+        """Выполнение необходимых действий перед началом работы"""
+        ...
 
-class MusicStorage:
+    @abstractmethod
+    async def search(self, query: str) -> List:
+        """Поиск файлов
 
-    def get(self, key: str):
-        audio = FFmpegPCMAudio(BASE_DIR / f'{key}.mp3', executable=ffdl.ffmpeg_path)
-        return PCMVolumeTransformer(audio, 0.5)
+        :param query: ключевая фраза для поиска
+        :returns: список найденных файлов
+        """
+        ...
+
+    @abstractmethod
+    async def get(self, query: str) -> Tuple[str, AudioSource] | None:
+        """Получить трек
+
+        :param query: ключевая фраза для поиска
+        :returns: название песни, музыкальный трек
+        """
