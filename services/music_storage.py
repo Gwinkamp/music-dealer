@@ -26,3 +26,8 @@ class MusicStorage(metaclass=ABCMeta):
         :param query: ключевая фраза для поиска
         :returns: название песни, музыкальный трек
         """
+
+    @abstractmethod
+    async def get_list(self) -> List:
+        """Получить список всех песен"""
+        ...

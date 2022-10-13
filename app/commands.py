@@ -1,5 +1,9 @@
 import json
+from io import BytesIO
 from logging import Logger
+
+import discord
+
 from core.models import Track
 from services import MusicStorage, MusicPlayer
 from discord.ext.commands import Cog, Context, command
@@ -56,7 +60,7 @@ class Commands(Cog):
         """Добавить песню в очередь playlist"""
         track_meta = await self.storage.get(track_name)
         if track_meta is None:
-            return await context.send(f'Песня с названием "{track_name}" не найдена')
+            return await context.send(f'По запросу {track_name} не найдено песен')
 
         track_name, track_source = track_meta
         track = Track(
@@ -87,13 +91,29 @@ class Commands(Cog):
         if query is None:
             return await context.send('Не задан параметр для поиска')
 
-        result = await self.storage.search(query)
-        items = [{
-            'name': item.path.split('/')[-1],
-            'size': item.size,
-            'updated': item.mtime.isoformat()
-        } for item in result]
-        return await context.send(f'```\n{json.dumps(items, indent=2, ensure_ascii=False)}\n```')
+        items = await self.storage.search(query)
+
+        if len(items) == 0:
+            return await context.send(f'По запросу "{query}" не найдено песен')
+
+        message = f'```\nНайдены совпадения ({len(items)}):\n'
+        for item in items:
+            message += f'* {item.path.split("/")[-1]}\n'
+        message += '```'
+
+        await context.send(message)
+
+    @command()
+    async def list(self, context: Context):
+        """Список доступных песен"""
+        files = await self.storage.get_list()
+
+        message = str()
+        for file in files:
+            message += file.name + '\n'
+
+        stream = BytesIO(message.encode('utf-8'))
+        await context.send("Список всех песен:", file=discord.File(stream, filename='Твоя любимая музыка.txt'))
 
     @command()
     async def pause(self, _: Context):

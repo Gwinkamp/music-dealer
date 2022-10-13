@@ -2,7 +2,7 @@ from logging import Logger
 from typing import List, Tuple
 import ffmpeg_downloader as ffdl
 from io import BytesIO
-from aseafile import SeafileHttpClient
+from aseafile import SeafileHttpClient, FileItem
 from aseafile.models import SearchResultItem
 from discord import FFmpegPCMAudio
 from services import MusicStorage
@@ -78,3 +78,13 @@ class SeafileMusicStorage(MusicStorage):
 
         return (file.path.split('/')[-1],
                 FFmpegPCMAudio(BytesIO(response.content), pipe=True, executable=ffdl.ffmpeg_path))
+
+    async def get_list(self) -> List[FileItem]:
+        response = await self._seafile.get_files(self._repo_id)
+
+        if not response.success:
+            self._logger.error(f'Не удалось получить список файлов')
+            return []
+
+        return response.content
+
