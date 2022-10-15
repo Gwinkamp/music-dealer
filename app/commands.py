@@ -1,10 +1,9 @@
-import json
+import discord
+import ffmpeg_downloader as ffdl
 from io import BytesIO
 from logging import Logger
-
-import discord
-
 from core.models import Track
+from core.exceptions import FFmpegNotFound
 from services import MusicStorage, MusicPlayer
 from discord.ext.commands import Cog, Context, command
 
@@ -19,6 +18,9 @@ class Commands(Cog):
         self.player = player
 
     async def setup(self):
+        if ffdl.ffmpeg_path is None:
+            raise FFmpegNotFound()
+
         await self.storage.setup()
 
     @command()
@@ -108,12 +110,15 @@ class Commands(Cog):
         """Список доступных песен"""
         files = await self.storage.get_list()
 
+        if len(files) == 0:
+            return await context.send('Песен пока что нет')
+
         message = str()
         for file in files:
             message += file.name + '\n'
 
         stream = BytesIO(message.encode('utf-8'))
-        await context.send("Список всех песен:", file=discord.File(stream, filename='Твоя любимая музыка.txt'))
+        await context.send('Список всех песен:', file=discord.File(stream, filename='Твоя любимая музыка.txt'))
 
     @command()
     async def pause(self, _: Context):
