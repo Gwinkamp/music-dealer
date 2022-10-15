@@ -11,6 +11,7 @@ class MusicPlayer:
 
     def __init__(self, logger: Logger):
         self._is_stopped = False
+        self._is_skipped = False
         self._voice_client: VoiceClient | None = None
         self._playlist: Deque[Track | DelayedTrack] = deque()
         self._playing_track: Track | None = None
@@ -71,6 +72,7 @@ class MusicPlayer:
             await self.play(track)
 
     async def play(self, track: Track):
+        self._is_skipped = False
 
         def callack(e: Exception):
             track.is_playing = False
@@ -82,8 +84,8 @@ class MusicPlayer:
             t.is_playing = True
 
             while t.is_playing:
-                if self.is_stopped:
-                    t.is_running = False
+                if self.is_stopped or self._is_skipped:
+                    t.is_playing = False
                 else:
                     time.sleep(1)
 
@@ -91,14 +93,23 @@ class MusicPlayer:
         self._playing_track = None
 
     def pause(self):
-        self._voice_client.pause()
+        if self.is_connected_to_voice_channel:
+            self._voice_client.pause()
 
     def resume(self):
-        self._voice_client.resume()
+        if self.is_connected_to_voice_channel:
+            self._voice_client.resume()
 
     def stop(self):
-        self._is_stopped = True
-        self._voice_client.stop()
+        if self.is_connected_to_voice_channel:
+            self._is_stopped = True
+            self._voice_client.stop()
+
+    def skip(self):
+        if self.is_connected_to_voice_channel:
+            self._is_skipped = True
+            self._voice_client.stop()
 
     async def disconnect(self):
-        await self._voice_client.disconnect()
+        if self.is_connected_to_voice_channel:
+            await self._voice_client.disconnect()

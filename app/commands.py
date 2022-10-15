@@ -148,6 +148,11 @@ class Commands(Cog):
         self.player.stop()
         await self.player.disconnect()
 
+    @command()
+    async def skip(self, _: Context):
+        """Пропустить песню в плейлисте"""
+        self.player.skip()
+
     @staticmethod
     def _is_user_connected_to_voice(context: Context):
         return context.author.voice is not None
