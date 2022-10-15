@@ -1,4 +1,5 @@
-from typing import List, Tuple
+from typing import List
+from core.models import Track
 from discord import AudioSource
 from abc import ABCMeta, abstractmethod
 
@@ -11,7 +12,7 @@ class MusicStorage(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def search(self, query: str) -> List:
+    async def search(self, query: str) -> List[Track]:
         """Поиск файлов
 
         :param query: ключевая фраза для поиска
@@ -20,7 +21,7 @@ class MusicStorage(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def get(self, query: str) -> Tuple[str, AudioSource] | None:
+    async def get(self, query: str) -> AudioSource | None:
         """Получить трек
 
         :param query: ключевая фраза для поиска

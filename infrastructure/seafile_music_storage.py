@@ -1,9 +1,9 @@
-from logging import Logger
-from typing import List, Tuple
 import ffmpeg_downloader as ffdl
+from logging import Logger
+from typing import List
 from io import BytesIO
+from core.models import Track
 from aseafile import SeafileHttpClient, FileItem
-from aseafile.models import SearchResultItem
 from discord import FFmpegPCMAudio
 from services import MusicStorage
 
@@ -54,30 +54,35 @@ class SeafileMusicStorage(MusicStorage):
         repo = repos.pop()
         return repo.id
 
-    async def search(self, query: str) -> List[SearchResultItem]:
+    async def search(self, query: str) -> List[Track]:
         response = await self._seafile.search_file(query, self._repo_id)
 
         if not response.success:
             self._logger.error(f'Не удалось получить список файлов по запросу {query}')
             return []
 
-        return response.content
+        return [
+            Track(
+                name=item.path.split('/')[-1],
+                is_playing=False,
+                source=None
+            ) for item in response.content
+        ]
 
-    async def get(self, query: str) -> Tuple[str, FFmpegPCMAudio] | None:
-        files = await self.search(query)
+    async def get(self, query: str) -> FFmpegPCMAudio | None:
+        files = await self._seafile.search_file(query, self._repo_id)
 
-        if len(files) == 0:
+        if len(files.content) == 0:
             return
 
-        file = files.pop()
+        file = files.content.pop()
         response = await self._seafile.download(self._repo_id, file.path)
 
         if not response.success:
             self._logger.error(f'Не удалось скачать файл "{file.path}" из seafile')
             return
 
-        return (file.path.split('/')[-1],
-                FFmpegPCMAudio(BytesIO(response.content), pipe=True, executable=ffdl.ffmpeg_path))
+        return FFmpegPCMAudio(BytesIO(response.content), pipe=True, executable=ffdl.ffmpeg_path)
 
     async def get_list(self) -> List[FileItem]:
         response = await self._seafile.get_files(self._repo_id)
@@ -87,4 +92,3 @@ class SeafileMusicStorage(MusicStorage):
             return []
 
         return response.content
-

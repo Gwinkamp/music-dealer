@@ -3,7 +3,7 @@ import asyncio
 from logging import Logger
 from typing import Deque
 from collections import deque
-from core.models import Track
+from core.models import Track, DelayedTrack
 from discord import VoiceClient, VoiceChannel
 
 
@@ -12,7 +12,8 @@ class MusicPlayer:
     def __init__(self, logger: Logger):
         self._is_stopped = False
         self._voice_client: VoiceClient | None = None
-        self._playlist: Deque[Track] = deque()
+        self._playlist: Deque[Track | DelayedTrack] = deque()
+        self._playing_track: Track | None = None
         self._logger = logger
 
     @property
@@ -45,11 +46,15 @@ class MusicPlayer:
     def playlist(self):
         return self._playlist
 
+    @property
+    def playing_track(self):
+        return self._playing_track
+
     async def connect_to(self, channel: VoiceChannel):
         self._voice_client = await channel.connect()
 
-    def add_to_playlist(self, track: Track):
-        self._playlist.append(track)
+    def add_to_playlist(self, delayed_track: DelayedTrack):
+        self._playlist.append(delayed_track)
 
     async def run_playlist(self):
         self._is_stopped = False
@@ -59,6 +64,10 @@ class MusicPlayer:
                 break
 
             track = self._playlist.popleft()
+
+            if track.source is None:
+                track.source = await track.source_filling_func()
+
             await self.play(track)
 
     async def play(self, track: Track):
@@ -67,6 +76,7 @@ class MusicPlayer:
             track.is_playing = False
 
         self._voice_client.play(track.source, after=callack)
+        self._playing_track = track
 
         def wait_until_complete(t: Track):
             t.is_playing = True
@@ -78,6 +88,7 @@ class MusicPlayer:
                     time.sleep(1)
 
         await asyncio.to_thread(wait_until_complete, track)
+        self._playing_track = None
 
     def pause(self):
         self._voice_client.pause()

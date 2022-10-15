@@ -2,7 +2,7 @@ import discord
 import ffmpeg_downloader as ffdl
 from io import BytesIO
 from logging import Logger
-from core.models import Track
+from core.models import Track, DelayedTrack
 from core.exceptions import FFmpegNotFound
 from services import MusicStorage, MusicPlayer
 from discord.ext.commands import Cog, Context, command
@@ -26,13 +26,19 @@ class Commands(Cog):
     @command()
     async def join(self, context: Context):
         """Подключиться к голосовому каналу"""
+        if not self._is_user_connected_to_voice(context):
+            return await context.send('Вы не подключены к голосовому чату')
+
         await self.player.connect_to(context.author.voice.channel)
 
     @command()
     async def play(self, context: Context, *, query: str | None):
         """Воспроизвести песню или запустить playlist"""
         if not self.player.is_connected_to_voice_channel:
-            await self.player.connect_to(context.author.voice.channel)
+            await self.join(context)
+
+        if not self.player.is_connected_to_voice_channel:
+            return
 
         if self.player.is_playing:
             return
@@ -44,42 +50,43 @@ class Commands(Cog):
         if query is None:
             return await self.player.run_playlist()
 
-        track_meta = await self.storage.get(query)
-        if track_meta is None:
-            return await context.send(f'Песня по запросу "{query}" не найдена')
+        search_result = await self.storage.search(query)
+        if len(search_result) == 0:
+            return await context.send(f'По запросу {query} не найдено песен')
 
-        track_name, track_source = track_meta
-        track = Track(
-            name=track_name,
-            is_playing=False,
-            source=track_source
-        )
+        # TODO: сделать возможность выбора из нескольких совпавших результатов
+        track = search_result.pop()
+        track_source = await self.storage.get(track.name)
+        track.source = track_source
 
         await self.player.play(track)
 
     @command()
-    async def add(self, context: Context, *, track_name: str):
+    async def add(self, context: Context, *, query: str):
         """Добавить песню в очередь playlist"""
-        track_meta = await self.storage.get(track_name)
-        if track_meta is None:
-            return await context.send(f'По запросу {track_name} не найдено песен')
+        search_result = await self.storage.search(query)
+        if len(search_result) == 0:
+            return await context.send(f'По запросу {query} не найдено песен')
 
-        track_name, track_source = track_meta
-        track = Track(
-            name=track_name,
-            is_playing=False,
-            source=track_source
-        )
+        # TODO: сделать возможность выбора из нескольких совпавших результатов
+        track = search_result.pop()
 
-        self.player.add_to_playlist(track)
+        delayed_track = self._create_delayed_track(track)
+        self.player.add_to_playlist(delayed_track)
 
     @command()
     async def queue(self, context: Context):
         """Отобразить очередь playlist"""
-        if self.player.is_playlist_empty:
-            return await context.send('`Playlist пуст`')
+        message = '```diff\nPlaylist\n'
 
-        message = '```\nТекущий Playlist:\n'
+        if self.player.playing_track is not None:
+            message += f'! Сейчас играет: {self.player.playing_track.name}\n'
+
+        message += '\nВ очереди:\n'
+        if self.player.is_playlist_empty:
+            message += '- пусто\n```'
+            return await context.send(message)
+
         for track in self.player.playlist:
             message += f' * {track.name}\n'
 
@@ -100,7 +107,7 @@ class Commands(Cog):
 
         message = f'```\nНайдены совпадения ({len(items)}):\n'
         for item in items:
-            message += f'* {item.path.split("/")[-1]}\n'
+            message += f'* {item.name}\n'
         message += '```'
 
         await context.send(message)
@@ -140,3 +147,18 @@ class Commands(Cog):
         """Останвоить воспроизведение и отключиться от голосового канала"""
         self.player.stop()
         await self.player.disconnect()
+
+    @staticmethod
+    def _is_user_connected_to_voice(context: Context):
+        return context.author.voice is not None
+
+    def _create_delayed_track(self, track: Track):
+        async def source_filling_func():
+            return await self.storage.get(track.name)
+
+        return DelayedTrack(
+            name=track.name,
+            is_playing=track.is_playing,
+            source=track.source,
+            source_filling_func=source_filling_func
+        )
