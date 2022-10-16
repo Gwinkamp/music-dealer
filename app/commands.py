@@ -1,4 +1,5 @@
 import discord
+import random
 import ffmpeg_downloader as ffdl
 from io import BytesIO
 from logging import Logger
@@ -60,6 +61,26 @@ class Commands(Cog):
         track.source = track_source
 
         await self.player.play(track)
+
+    @command()
+    async def playall(self, context: Context):
+        """Запустить playlist со всеми песнями в случайном порядке"""
+        if not self.player.is_connected_to_voice_channel:
+            await self.join(context)
+
+        if not self.player.is_connected_to_voice_channel:
+            return
+
+        track_list = await self.storage.get_list()
+
+        random.shuffle(track_list)
+
+        for track in track_list:
+            delayed_track = self._create_delayed_track(track)
+            self.player.add_to_playlist(delayed_track)
+
+        if not self.player.is_playing:
+            await self.player.run_playlist()
 
     @command()
     async def add(self, context: Context, *, query: str):
@@ -144,14 +165,19 @@ class Commands(Cog):
 
     @command()
     async def disconnect(self, _: Context):
-        """Останвоить воспроизведение и отключиться от голосового канала"""
+        """Остановить воспроизведение и отключиться от голосового канала"""
         self.player.stop()
         await self.player.disconnect()
 
     @command()
     async def skip(self, _: Context):
-        """Пропустить песню в плейлисте"""
+        """Пропустить песню в playlist"""
         self.player.skip()
+
+    @command()
+    async def clear(self, _: Context):
+        """Очистить playlist"""
+        self.player.clear()
 
     @staticmethod
     def _is_user_connected_to_voice(context: Context):

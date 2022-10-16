@@ -110,6 +110,9 @@ class MusicPlayer:
             self._is_skipped = True
             self._voice_client.stop()
 
+    def clear(self):
+        self._playlist.clear()
+
     async def disconnect(self):
         if self.is_connected_to_voice_channel:
             await self._voice_client.disconnect()

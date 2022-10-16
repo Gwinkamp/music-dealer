@@ -84,11 +84,17 @@ class SeafileMusicStorage(MusicStorage):
 
         return FFmpegPCMAudio(BytesIO(response.content), pipe=True, executable=ffdl.ffmpeg_path)
 
-    async def get_list(self) -> List[FileItem]:
+    async def get_list(self) -> List[Track]:
         response = await self._seafile.get_files(self._repo_id)
 
         if not response.success:
             self._logger.error(f'Не удалось получить список файлов')
             return []
 
-        return response.content
+        return [
+            Track(
+                name=item.name,
+                is_playing=False,
+                source=None
+            ) for item in response.content
+        ]

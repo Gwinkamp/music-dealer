@@ -29,6 +29,6 @@ class MusicStorage(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    async def get_list(self) -> List:
+    async def get_list(self) -> List[Track]:
         """Получить список всех песен"""
         ...
