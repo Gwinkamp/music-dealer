@@ -2,7 +2,7 @@ import discord
 import random
 import ffmpeg_downloader as ffdl
 from io import BytesIO
-from logging import Logger
+from app.embeds import PlaylistEmbed, SearchEmbed
 from core.models import Track, DelayedTrack
 from core.exceptions import FFmpegNotFound
 from services import MusicStorage, MusicPlayer
@@ -12,9 +12,8 @@ from discord.ext.commands import Cog, Context, command
 class Commands(Cog):
     """Класс, инкапсулирующий все команды боту"""
 
-    def __init__(self, storage: MusicStorage, player: MusicPlayer, logger: Logger):
+    def __init__(self, storage: MusicStorage, player: MusicPlayer):
         super().__init__()
-        self.logger = logger
         self.storage = storage
         self.player = player
 
@@ -98,22 +97,8 @@ class Commands(Cog):
     @command()
     async def queue(self, context: Context):
         """Отобразить очередь playlist"""
-        message = '```diff\nPlaylist\n'
-
-        if self.player.playing_track is not None:
-            message += f'! Сейчас играет: {self.player.playing_track.name}\n'
-
-        message += '\nВ очереди:\n'
-        if self.player.is_playlist_empty:
-            message += '- пусто\n```'
-            return await context.send(message)
-
-        for track in self.player.playlist:
-            message += f' * {track.name}\n'
-
-        message += '```'
-
-        await context.send(message)
+        embed = PlaylistEmbed(self.player).create()
+        await context.send(embed=embed)
 
     @command()
     async def search(self, context: Context, *, query: str):
@@ -122,16 +107,8 @@ class Commands(Cog):
             return await context.send('Не задан параметр для поиска')
 
         items = await self.storage.search(query)
-
-        if len(items) == 0:
-            return await context.send(f'По запросу "{query}" не найдено песен')
-
-        message = f'```\nНайдены совпадения ({len(items)}):\n'
-        for item in items:
-            message += f'* {item.name}\n'
-        message += '```'
-
-        await context.send(message)
+        embed = SearchEmbed(items).create()
+        await context.send(embed=embed)
 
     @command()
     async def list(self, context: Context):

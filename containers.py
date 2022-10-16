@@ -16,7 +16,6 @@ class Container(containers.DeclarativeContainer):
     commands = providers.Singleton(
         Commands,
         storage=music_storage,
-        player=music_player,
-        logger=create_default_logger('commands')
+        player=music_player
     )
 
