@@ -2,7 +2,7 @@ import discord
 import random
 import ffmpeg_downloader as ffdl
 from io import BytesIO
-from app.views import SkipView
+from app.views import SkipView, SelectTrackView
 from app.embeds import PlaylistEmbed, SearchEmbed
 from core.models import Track, DelayedTrack
 from core.exceptions import FFmpegNotFound
@@ -53,15 +53,24 @@ class Commands(Cog):
             return await self.player.run_playlist(callback)
 
         search_result = await self.storage.search(query)
-        if len(search_result) == 0:
-            return await context.send(f'По запросу {query} не найдено песен')
 
-        # TODO: сделать возможность выбора из нескольких совпавших результатов
-        track = search_result.pop()
-        track_source = await self.storage.get(track.name)
-        track.source = track_source
+        async def download_and_play(t: Track):
+            t_source = await self.storage.get(t.name)
+            t.source = t_source
+            await self.player.play(t)
 
-        await self.player.play(track)
+        match len(search_result):
+            case 0:
+                return await context.send(f'По запросу `{query}` не найдено песен')
+            case 1:
+                track = search_result.pop()
+                await download_and_play(track)
+            case _:
+                if len(search_result) > 25:
+                    return await context.send('Найдено более 25 совпадений. Пожалуйста, конкретизируйте запрос')
+
+                select_view = SelectTrackView(search_result, download_and_play)
+                await context.send(view=select_view)
 
     @command()
     async def playall(self, context: Context):
@@ -88,14 +97,23 @@ class Commands(Cog):
     async def add(self, context: Context, *, query: str):
         """Добавить песню в очередь playlist"""
         search_result = await self.storage.search(query)
-        if len(search_result) == 0:
-            return await context.send(f'По запросу {query} не найдено песен')
 
-        # TODO: сделать возможность выбора из нескольких совпавших результатов
-        track = search_result.pop()
+        async def add_to_playlist(t: Track):
+            delayed_track = self._create_delayed_track(t)
+            self.player.add_to_playlist(delayed_track)
 
-        delayed_track = self._create_delayed_track(track)
-        self.player.add_to_playlist(delayed_track)
+        match len(search_result):
+            case 0:
+                return await context.send(f'По запросу `{query}` не найдено песен')
+            case 1:
+                track = search_result.pop()
+                await add_to_playlist(track)
+            case _:
+                if len(search_result) > 25:
+                    return await context.send('Найдено более 25 совпадений. Пожалуйста, конкретизируйте запрос')
+
+                select_view = SelectTrackView(search_result, add_to_playlist)
+                await context.send(view=select_view)
 
     @command()
     async def queue(self, context: Context):
@@ -176,7 +194,8 @@ class Commands(Cog):
 
     def _create_next_track_default_callback(self, context: Context):
         """Создать callback, который будет вызываться перед началом воспроизведения песни в playlist`е"""
+
         async def next_track_callback(t: Track):
-            await context.send(f'Сейчас играет: ```{t.name}```', view=SkipView(t.name, self.player))
+            await context.send(f'Сейчас играет: ```{t.name}```', view=SkipView(self.player))
 
         return next_track_callback
