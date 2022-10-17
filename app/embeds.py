@@ -7,7 +7,7 @@ from core.models import Track, DelayedTrack
 class PlaylistEmbed:
     """Встроенное сообщение, отображающее состояние playlist`а"""
 
-    MAX_QUEUE_RENDERING_LENGTH = 50
+    MAX_QUEUE_RENDERING_LENGTH = 15
 
     def __init__(self, player: MusicPlayer):
         self._player = player

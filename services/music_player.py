@@ -1,8 +1,8 @@
 import time
 import asyncio
 from logging import Logger
-from typing import Deque
 from collections import deque
+from typing import Deque, Callable, Coroutine
 from core.models import Track, DelayedTrack
 from discord import VoiceClient, VoiceChannel
 
@@ -57,7 +57,7 @@ class MusicPlayer:
     def add_to_playlist(self, delayed_track: DelayedTrack):
         self._playlist.append(delayed_track)
 
-    async def run_playlist(self):
+    async def run_playlist(self, next_track_callback: Callable[[Track], Coroutine] | None = None):
         self._is_stopped = False
 
         while not self.is_playlist_empty:
@@ -68,6 +68,9 @@ class MusicPlayer:
 
             if track.source is None:
                 track.source = await track.source_filling_func()
+
+            if next_track_callback is not None:
+                await next_track_callback(track)
 
             await self.play(track)
 

@@ -2,6 +2,7 @@ import discord
 import random
 import ffmpeg_downloader as ffdl
 from io import BytesIO
+from app.views import SkipView
 from app.embeds import PlaylistEmbed, SearchEmbed
 from core.models import Track, DelayedTrack
 from core.exceptions import FFmpegNotFound
@@ -48,7 +49,8 @@ class Commands(Cog):
             return
 
         if query is None:
-            return await self.player.run_playlist()
+            callback = self._create_next_track_default_callback(context)
+            return await self.player.run_playlist(callback)
 
         search_result = await self.storage.search(query)
         if len(search_result) == 0:
@@ -79,7 +81,8 @@ class Commands(Cog):
             self.player.add_to_playlist(delayed_track)
 
         if not self.player.is_playing:
-            await self.player.run_playlist()
+            callback = self._create_next_track_default_callback(context)
+            await self.player.run_playlist(callback)
 
     @command()
     async def add(self, context: Context, *, query: str):
@@ -170,3 +173,10 @@ class Commands(Cog):
             source=track.source,
             source_filling_func=source_filling_func
         )
+
+    def _create_next_track_default_callback(self, context: Context):
+        """Создать callback, который будет вызываться перед началом воспроизведения песни в playlist`е"""
+        async def next_track_callback(t: Track):
+            await context.send(f'Сейчас играет: ```{t.name}```', view=SkipView(t.name, self.player))
+
+        return next_track_callback
